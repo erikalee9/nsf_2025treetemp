@@ -1,0 +1,196 @@
+---
+title: "2025treetemp_datawrangling"
+author: "Erika Lee"
+date: "2025-02-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lterdatasampler)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(readxl)
+library(lubridate)
+library(plotly)
+library(openxlsx)
+library(plotly)
+library(rstatix)
+library(htmlwidgets)
+library(RColorBrewer)
+library(patchwork)
+library(ggpubr)
+library(suncalc)
+
+setwd("/Volumes/wcnr-network/Research/Kampf/Private/field_data")
+```
+
+```{r}
+#to clear prior environment
+rm(list = ls())
+```
+
+# Calling in Data
+
+\*\* bs means below snow -\> all new 1 and 0.5 m sensors!
+
+```{r}
+#calling in tree temp data from n-drive
+## burned
+bs_pers_b_alldata <- read_csv("nsf/105E_pers_burned/105E_pers_b_bs_composite.csv")
+
+bs_trans_b_alldata <- read_csv("nsf/105E_trans_burned/105E_trans_b_bs_composite.csv")
+
+bs_pers_ub_alldata <- read_csv("nsf/105E_pers_unburned/105E_pers_ub_bs_composite.csv")
+
+## don't have yet!
+bs_trans_ub_alldata <- read_csv("nsf/105E_trans_unburned/105E_trans_ub__bs_composite.csv")
+```
+
+# Data Wrangling
+
+```{r}
+bs_pers_b_aspects <- bs_pers_b_alldata %>%
+  mutate(TIMESTAMP = paste0(TIMESTAMP, ":00")) %>%  # Add missing seconds
+  mutate(datetime = mdy_hms(TIMESTAMP, tz = "MST")) %>%
+  select(-TIMESTAMP) %>%
+  select(datetime, everything()) %>%
+  pivot_longer(cols = matches("^GB|^DB"),  # Use matches() for multiple prefixes
+  names_to = "tree_id",
+  values_to = "temp_C") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    tree_id %in% c(
+      "GB_E_N_1_Avg",
+      "GB_E_N_05_Avg",
+      "DB_N_N_1_Avg",
+      "DB_N_N_05_Avg"),
+    "north",
+    "south"
+  )) %>%
+  # Add tree_name column based on the start of tree_id
+  mutate(tree_name = case_when(
+    str_starts(tree_id, "GB_E") ~ "gb_e",  # If tree_id starts with "GB_E"
+    str_starts(tree_id, "DB_N") ~ "db_n",  # If tree_id starts with "DB_N"
+    TRUE ~ NA_character_  # If neither condition is met, set to NA
+  )) %>%
+  #add burn status column
+   # Add tree_name column based on the start of tree_id
+  mutate(burn_status = case_when(
+    str_starts(tree_id, "GB_E") ~ "GB",  # If tree_id starts with "GB_E"
+    str_starts(tree_id, "DB") ~ "DB",  # If tree_id starts with "DB_N"
+    TRUE ~ NA_character_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(sensor_height_m = case_when(
+    str_ends(tree_id, "1_Avg") ~ 1,  # If tree_id ends with "1_Avg"
+    str_ends(tree_id, "05_Avg") ~ 0.5,  # If tree_id ends with "05_Avg"
+    TRUE ~ NA_real_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(zone = "PSZ", day = as.Date(datetime, tz = "MST")) %>%
+  select(datetime, day, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C)
+```
+
+```{r}
+bs_trans_b_aspects <- bs_trans_b_alldata %>%
+  mutate(TIMESTAMP = paste0(TIMESTAMP, ":00")) %>%  # Add missing seconds
+  mutate(datetime = mdy_hms(TIMESTAMP, tz = "MST")) %>%
+  select(-TIMESTAMP) %>%
+  select(datetime, everything()) %>%
+  pivot_longer(cols = matches("^GB|^DB"),  # Use matches() for multiple prefixes
+  names_to = "tree_id",
+  values_to = "temp_C") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    tree_id %in% c(
+      "gb_s_n_1_Avg",
+      "gb_s_n_05_Avg",
+      "db_s_n_1_Avg",
+      "db_s_n_05_Avg"),
+    "north",
+    "south"
+  )) %>%
+  # Add tree_name column based on the start of tree_id
+  mutate(tree_name = case_when(
+    str_starts(tree_id, "gb_s") ~ "gb_s",  # If tree_id starts with "GB_E"
+    str_starts(tree_id, "db_s") ~ "db_s",  # If tree_id starts with "DB_N"
+    TRUE ~ NA_character_  # If neither condition is met, set to NA
+  )) %>%
+  #add burn status column
+   # Add tree_name column based on the start of tree_id
+  mutate(burn_status = case_when(
+    str_starts(tree_id, "gb") ~ "GB",  # If tree_id starts with "GB_E"
+    str_starts(tree_id, "db") ~ "DB",  # If tree_id starts with "DB_N"
+    TRUE ~ NA_character_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(sensor_height_m = case_when(
+    str_ends(tree_id, "1_Avg") ~ 1,  # If tree_id ends with "1_Avg"
+    str_ends(tree_id, "05_Avg") ~ 0.5,  # If tree_id ends with "05_Avg"
+    TRUE ~ NA_real_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(zone = "TSZ", day = as.Date(datetime, tz = "MST")) %>%
+  select(datetime, day, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C)
+```
+
+```{r}
+bs_pers_ub_aspects <- bs_pers_ub_alldata %>%
+  mutate(TIMESTAMP = paste0(TIMESTAMP, ":00")) %>%  # Add missing seconds
+  mutate(datetime = mdy_hms(TIMESTAMP, tz = "MST")) %>%
+  select(-TIMESTAMP) %>%
+  select(datetime, everything()) %>%
+  pivot_longer(cols = matches("^UB"),  # Use matches() for multiple prefixes
+  names_to = "tree_id",
+  values_to = "temp_C") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    tree_id %in% c(
+      "UB_N_N_2_Avg",
+      "UB_N_N_05_Avg"), 
+    "north",
+    "south"
+  )) %>%
+  # Add tree_name column based on the start of tree_id
+  mutate(tree_name = "ub_n", burn_status = "live", zone = "PSZ") %>%
+  mutate(sensor_height_m = case_when(
+    str_ends(tree_id, "2_Avg") ~ 2,  # If tree_id ends with "1_Avg"
+    str_ends(tree_id, "05_Avg") ~ 0.5,  # If tree_id ends with "05_Avg"
+    TRUE ~ NA_real_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(day = as.Date(datetime, tz = "MST")) %>%
+  select(datetime, day, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C)
+```
+
+```{r}
+## WILL NEED TO EDIT THIS ONCE I HAVE DATA FROM SITE!
+bs_trans_ub_aspects <- bs_trans_ub_alldata %>%
+  mutate(TIMESTAMP = paste0(TIMESTAMP, ":00")) %>%  # Add missing seconds
+  mutate(datetime = mdy_hms(TIMESTAMP, tz = "MST")) %>%
+  select(-TIMESTAMP) %>%
+  select(datetime, everything()) %>%
+  pivot_longer(cols = matches("^UB"),  # Use matches() for multiple prefixes
+  names_to = "tree_id",
+  values_to = "temp_C") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    tree_id %in% c(
+      "UB_N_N_2_Avg",
+      "UB_N_N_05_Avg"), 
+    "north",
+    "south"
+  )) %>%
+  # Add tree_name column based on the start of tree_id
+  mutate(tree_name = "ub_n", burn_status = "live", zone = "TSZ") %>%
+  mutate(sensor_height_m = case_when(
+    str_ends(tree_id, "2_Avg") ~ 2,  # If tree_id ends with "1_Avg"
+    str_ends(tree_id, "05_Avg") ~ 0.5,  # If tree_id ends with "05_Avg"
+    TRUE ~ NA_real_  # If neither condition is met, set to NA
+  )) %>%
+  mutate(day = as.Date(datetime, tz = "MST")) %>%
+  select(datetime, day, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C)
+```
+
+\*\* add in phase next! Need to download p_solar_times then do a mutate to add phase to all of the above datasets -\> but make a new version labeled XXX_r?
