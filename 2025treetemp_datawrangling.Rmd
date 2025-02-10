@@ -54,6 +54,12 @@ bs_trans_ub_alldata <- read_csv("nsf/105E_trans_unburned/105E_trans_ub__bs_compo
 
 # Data Wrangling
 
+Instructions: Call in this data & rerun all the steps whenever I add new data to the composite files in nsf field data drive.
+
+-   need to change dates on X_solar_times data wrangling steps then rerun when I add data to the composite files -\> update time range to current range in composite csv's
+
+-   need to export new \_r versions when I add data to composite csv's
+
 ```{r}
 bs_pers_b_aspects <- bs_pers_b_alldata %>%
   mutate(TIMESTAMP = paste0(TIMESTAMP, ":00")) %>%  # Add missing seconds
@@ -194,3 +200,121 @@ bs_trans_ub_aspects <- bs_trans_ub_alldata %>%
 ```
 
 \*\* add in phase next! Need to download p_solar_times then do a mutate to add phase to all of the above datasets -\> but make a new version labeled XXX_r?
+
+Adding in phase
+
+```{r}
+# Specify PSZ and TSZ locations
+##pers_b - from 105E location!
+p_b_lat <- 40.56379284
+p_b_lon <- -105.867215
+##pers_ub - from 105E locations
+p_ub_lat <- 40.5638075
+p_ub_lon <- -105.8705715
+
+##trans_b - from 105E locations!
+t_b_lat <- 40.60600629
+t_b_lon <- -105.8333335
+
+##trans_ub - from 105E locations!
+t_ub_lat <- 40.568396
+t_ub_lon <- -105.587383
+
+## use the p_b_lat/long since all of these dates/times are almost identical for sunrise/sunset
+
+# Create a date sequence from February 2nd to May 24th, 2024 for solar exposure
+solex_dates <- seq(as.Date("2024-10-01"), as.Date("2025-07-01"), by = "day")
+
+# Get solar times for each day
+p_b_solar_times_2025 <- getSunlightTimes(date = solex_dates, lat = p_b_lat, lon = p_b_lon, tz = "MST") %>%
+  mutate(
+    day = as.Date(date),  # Ensure 'day' is of Date type for joining
+    sunrise = with_tz(as.POSIXct(sunrise), tzone = "MST"),  # Set MST timezone
+    sunset = with_tz(as.POSIXct(sunset), tzone = "MST")     # Set MST timezone
+  )
+```
+
+```{r}
+#cutting the sunrise/sunset times to the current date range
+#PSZ burned
+p_b_solar_times_2025_V2 <- p_b_solar_times_2025 %>%
+  mutate(day = as.Date(date)) %>%
+  filter(day >= as.Date("2024-12-18") & day <= as.Date("2025-01-10")) %>% 
+  mutate(day = as.Date(day, format = "%Y-%m-%d"))
+
+#TSZ burned
+t_b_solar_times_2025 <- p_b_solar_times_2025 %>%
+  mutate(day = as.Date(date)) %>%
+  filter(day >= as.Date("2024-11-13") & day <= as.Date("2025-01-15")) %>% 
+  mutate(day = as.Date(day, format = "%Y-%m-%d"))
+
+#PSZ unburned
+p_ub_solar_times_2025 <- p_b_solar_times_2025 %>%
+  mutate(day = as.Date(date)) %>%
+  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-01-09")) %>% 
+  mutate(day = as.Date(day, format = "%Y-%m-%d"))
+
+#TSZ unburned - DONT HAVE DATA YET!
+t_ub_solar_times_2025 <- p_b_solar_times_2025 %>%
+  mutate(day = as.Date(date)) %>%
+  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-01-09")) %>% 
+  mutate(day = as.Date(day, format = "%Y-%m-%d"))
+```
+
+```{r}
+#PSZ burned data with day/night
+bs_pers_b_aspects_filtered <- bs_pers_b_aspects %>%
+  mutate(day = as.Date(day, format = ("%Y-%m-%d"))) %>%
+  inner_join(p_b_solar_times_2025_V2, by = "day") %>%
+  #creating a phase column that parses by daily sunrise/sunset times
+  mutate(
+    phase = case_when(
+      datetime >= sunrise & datetime < sunset ~ "day",
+      datetime < sunrise ~ "night",
+      datetime >= sunset ~ "night",
+      TRUE ~ NA_character_)) %>%
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
+```
+
+```{r}
+#TSZ burned data with day/night
+bs_trans_b_aspects_filtered <- bs_trans_b_aspects %>%
+  mutate(day = as.Date(day, format = ("%Y-%m-%d"))) %>%
+  inner_join(t_b_solar_times_2025, by = "day") %>%
+  #creating a phase column that parses by daily sunrise/sunset times
+  mutate(
+    phase = case_when(
+      datetime >= sunrise & datetime < sunset ~ "day",
+      datetime < sunrise ~ "night",
+      datetime >= sunset ~ "night",
+      TRUE ~ NA_character_)) %>%
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
+```
+
+```{r}
+#PSZ unburned data with day/night
+bs_pers_ub_aspects_filtered <- bs_pers_ub_aspects %>%
+  mutate(day = as.Date(day, format = ("%Y-%m-%d"))) %>%
+  inner_join(p_ub_solar_times_2025, by = "day") %>%
+  #creating a phase column that parses by daily sunrise/sunset times
+  mutate(
+    phase = case_when(
+      datetime >= sunrise & datetime < sunset ~ "day",
+      datetime < sunrise ~ "night",
+      datetime >= sunset ~ "night",
+      TRUE ~ NA_character_)) %>%
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
+```
+
+Exporting filtered datasets
+
+```{r}
+#datasets with full extent as of now, but will need to rerun when I upload new data to the composite files
+write_csv(bs_pers_b_aspects_filtered, "nsf/105E_pers_burned/105E_pers_b_bs_r.csv")
+
+write_csv(bs_trans_b_aspects_filtered, "nsf/105E_trans_burned/105E_trans_b_bs_r.csv")
+
+write_csv(bs_pers_ub_aspects_filtered, "nsf/105E_pers_unburned/105E_pers_ub_bs_r.csv")
+
+write_csv(bs_trans_ub_aspects_filtered, "nsf/105E_trans_unburned/105E_trans_ub_bs_r.csv")
+```
