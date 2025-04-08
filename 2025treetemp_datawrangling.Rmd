@@ -49,7 +49,202 @@ bs_trans_b_alldata <- read_csv("nsf/105E_trans_burned/105E_trans_b_bs_composite.
 bs_pers_ub_alldata <- read_csv("nsf/105E_pers_unburned/105E_pers_ub_bs_composite.csv")
 
 ## don't have yet!
-bs_trans_ub_alldata <- read_csv("nsf/105E_trans_unburned/105E_trans_ub__bs_composite.csv")
+#bs_trans_ub_alldata <- read_csv("nsf/105E_trans_unburned/105E_trans_ub__bs_composite.csv")
+```
+
+2m sensor data
+
+```{r}
+#read in temperature data
+pers_b_tree_composite=read_excel("nsf/105E_pers_burned/105E_pers_b_composite.xlsx")
+
+#filter temp data to full data frame
+pers_b_tree_fulldata <- pers_b_tree_composite %>%
+  mutate(datetime = ymd_hms(TIMESTAMP, tz = "MST")) %>%
+  select(datetime, everything()) %>%
+  select(-c(TIMESTAMP, RECORD))
+
+#adding in an aspect column - WITH ONLY 14 SENSORS!
+pers_b_aspects <- pers_b_tree_fulldata %>%
+  pivot_longer(cols = starts_with("Temp"),
+               names_to = "sensor_id",
+               values_to = "temp") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    sensor_id %in% c(
+      "Temp_C_Avg(1)",
+      "Temp_C_Avg(5)",
+      "Temp_C_Avg(9)",
+      "Temp_C_Avg(13)", "Temp_C_Avg(15)"
+    ),
+    "north",
+    "other"
+  )) %>%
+  mutate(aspect = ifelse(
+    sensor_id %in% c(
+      "Temp_C_Avg(2)",
+      "Temp_C_Avg(6)",
+      "Temp_C_Avg(10)",
+      "Temp_C_Avg(14)", "Temp_C_Avg(16)"),
+    "south",
+    aspect
+  )) %>%
+  mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(3)", "Temp_C_Avg(7)", "Temp_C_Avg(11)"),
+    "charred",
+    aspect
+  )) %>%
+  mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(4)", "Temp_C_Avg(8)", "Temp_C_Avg(12)"),
+    "uncharred",
+    aspect
+  )) %>%
+  #adding in sensor name column
+  mutate(tree_name = ifelse(
+    sensor_id %in% c(
+      "Temp_C_Avg(1)",
+      "Temp_C_Avg(2)",
+      "Temp_C_Avg(3)",
+      "Temp_C_Avg(4)"
+    ),
+    "gb_w",
+    "other"
+  )) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c(
+      "Temp_C_Avg(5)",
+      "Temp_C_Avg(6)",
+      "Temp_C_Avg(7)",
+      "Temp_C_Avg(8)"
+    ),
+    "gb_e",
+    tree_name
+  )) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c(
+      "Temp_C_Avg(9)",
+      "Temp_C_Avg(10)",
+      "Temp_C_Avg(11)",
+      "Temp_C_Avg(12)"
+    ),
+    "gb_s",
+    tree_name
+  )) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(13)", "Temp_C_Avg(14)"),
+    "db_n",
+    tree_name
+  )) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(15)", "Temp_C_Avg(16)"),
+    "db_s",
+    tree_name
+  )) %>%
+#adding in sensor height & zone
+  mutate(sensor_height_m = 2.0, zone = "PSZ", day = as.Date(datetime, tz = "MST")) %>%
+  #removing charred/uncharred sensors
+  filter(!aspect %in% c("charred", "uncharred")) %>%
+    #adding in burn status column
+  mutate(burn_status = case_when(
+    str_starts(tree_name, "gb_") ~ "GB",
+    str_starts(tree_name, "db_") ~ "DB",
+    TRUE ~ NA_character_  # Or any default value you want
+  )) %>%
+  rename(temp_C = "temp") %>%
+  select(-sensor_id) %>%
+  #filtering timeperiod to match BS dataframe 
+  filter(datetime >= "2024-12-18 14:30:00") %>%
+  filter(!tree_name == "gb_w") %>%
+  #adding phase column 
+  mutate(day = as.Date(day, format = ("%Y-%m-%d"))) %>%
+  inner_join(p_b_solar_times_2025_V2, by = "day") %>%
+  #creating a phase column that parses by daily sunrise/sunset times
+  mutate(
+    phase = case_when(
+      datetime >= sunrise & datetime < sunset ~ "day",
+      datetime < sunrise ~ "night",
+      datetime >= sunset ~ "night",
+      TRUE ~ NA_character_)) %>%
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
+```
+
+```{r}
+#read in temperature data
+trans_b_tree_composite=read_excel("nsf/105E_trans_burned/105E_trans_b_composite.xlsx")
+
+#filter temp data to full data frame
+trans_b_tree_fulldata <- trans_b_tree_composite %>%
+  mutate(datetime = ymd_hms(TIMESTAMP, tz = "MST")) %>%
+  select(datetime, everything()) %>%
+  select(-c(TIMESTAMP, Record)) %>%
+  na.omit()
+
+#adding in an aspect column - ** need to edit date on trans_b sensors, seems weird, should be 2023.12.06 around 10 am?
+trans_b_aspects <- trans_b_tree_fulldata %>%
+  pivot_longer(cols = starts_with("Temp"),
+               names_to = "sensor_id",
+               values_to = "temp") %>%
+  #add in aspect column
+  mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(1)", "Temp_C_Avg(5)", "Temp_C_Avg(9)", "Temp_C_Avg(11)"),
+    "north",
+    "other"
+  )) %>%
+mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(2)", "Temp_C_Avg(6)", "Temp_C_Avg(10)", "Temp_C_Avg(12)"),
+    "south",
+    aspect)) %>%
+  mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(3)", "Temp_C_Avg(7)"),
+    "charred",
+    aspect)) %>%
+    mutate(aspect = ifelse(
+    sensor_id %in% c("Temp_C_Avg(4)", "Temp_C_Avg(8)"),
+    "uncharred",
+    aspect)) %>%
+  #adding in sensor name column
+  mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(1)", "Temp_C_Avg(2)", "Temp_C_Avg(3)", "Temp_C_Avg(4)"),
+    "gb_n",
+    "other"
+  )) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(5)", "Temp_C_Avg(6)", "Temp_C_Avg(7)", "Temp_C_Avg(8)"),
+    "gb_s",
+    tree_name)) %>%
+  mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(9)", "Temp_C_Avg(10)"),
+    "db_n",
+    tree_name)) %>%
+    mutate(tree_name = ifelse(
+    sensor_id %in% c("Temp_C_Avg(11)", "Temp_C_Avg(12)"),
+    "db_s",
+    tree_name)) %>%
+  #adding in sensor height, zone & date
+  mutate(sensor_height_m = 2.0, zone = "TSZ", day = as.Date(datetime, tz = "MST")) %>%
+  #removing charred/uncharred sensors
+  filter(!aspect %in% c("charred", "uncharred")) %>%
+  #adding in burn status column
+  mutate(burn_status = case_when(
+    str_starts(tree_name, "gb_") ~ "GB",
+    str_starts(tree_name, "db_") ~ "DB",
+    TRUE ~ NA_character_  # Or any default value you want
+  )) %>%
+  rename(temp_C = "temp") %>%
+  select(-sensor_id) %>%
+  #filtering date so that it matches bs dataset
+  filter(datetime >= as.POSIXct("2024-11-13 11:30:00", tz = "MST")) %>%
+  #adding phase column 
+  mutate(day = as.Date(day, format = ("%Y-%m-%d"))) %>%
+  inner_join(p_b_solar_times_2025_V2, by = "day") %>%
+  #creating a phase column that parses by daily sunrise/sunset times
+  mutate(
+    phase = case_when(
+      datetime >= sunrise & datetime < sunset ~ "day",
+      datetime < sunrise ~ "night",
+      datetime >= sunset ~ "night",
+      TRUE ~ NA_character_)) %>%
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
 ```
 
 # Data Wrangling
@@ -239,25 +434,25 @@ p_b_solar_times_2025 <- getSunlightTimes(date = solex_dates, lat = p_b_lat, lon 
 #PSZ burned
 p_b_solar_times_2025_V2 <- p_b_solar_times_2025 %>%
   mutate(day = as.Date(date)) %>%
-  filter(day >= as.Date("2024-12-18") & day <= as.Date("2025-01-10")) %>% 
+  filter(day >= as.Date("2024-12-18") & day <= as.Date("2025-06-30")) %>% 
   mutate(day = as.Date(day, format = "%Y-%m-%d"))
 
 #TSZ burned
 t_b_solar_times_2025 <- p_b_solar_times_2025 %>%
   mutate(day = as.Date(date)) %>%
-  filter(day >= as.Date("2024-11-13") & day <= as.Date("2025-01-15")) %>% 
+  filter(day >= as.Date("2024-11-13") & day <= as.Date("2025-06-30")) %>% 
   mutate(day = as.Date(day, format = "%Y-%m-%d"))
 
 #PSZ unburned
 p_ub_solar_times_2025 <- p_b_solar_times_2025 %>%
   mutate(day = as.Date(date)) %>%
-  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-01-09")) %>% 
+  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-06-30")) %>% 
   mutate(day = as.Date(day, format = "%Y-%m-%d"))
 
 #TSZ unburned - DONT HAVE DATA YET!
 t_ub_solar_times_2025 <- p_b_solar_times_2025 %>%
   mutate(day = as.Date(date)) %>%
-  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-01-09")) %>% 
+  filter(day >= as.Date("2024-11-12") & day <= as.Date("2025-06-30")) %>% 
   mutate(day = as.Date(day, format = "%Y-%m-%d"))
 ```
 
@@ -288,7 +483,8 @@ bs_trans_b_aspects_filtered <- bs_trans_b_aspects %>%
       datetime < sunrise ~ "night",
       datetime >= sunset ~ "night",
       TRUE ~ NA_character_)) %>%
-  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk)
+  select(datetime, day, phase, zone, burn_status, tree_name, aspect, sensor_height_m, temp_C, solarNoon, sunrise, sunset, dawn, dusk) %>%
+  filter(datetime >= as.POSIXct("2024-11-13 11:30:00", tz = "MST"))
 ```
 
 ```{r}
@@ -318,3 +514,24 @@ write_csv(bs_pers_ub_aspects_filtered, "nsf/105E_pers_unburned/105E_pers_ub_bs_r
 
 write_csv(bs_trans_ub_aspects_filtered, "nsf/105E_trans_unburned/105E_trans_ub_bs_r.csv")
 ```
+
+Joining bs and 2m data for full dataset
+
+```{r}
+#PSZ burned
+pers_full_treetemp_data_2025 <- bs_pers_b_aspects_filtered %>%
+  full_join(pers_b_aspects, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk")) %>%
+  full_join(bs_pers_ub_aspects_filtered, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
+```
+
+```{r}
+trans_full_treetemp_data_2025 <- bs_trans_b_aspects_filtered %>%
+  full_join(pers_b_aspects, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
+
+#adding trans UB - cant do this yet because I don't have data!
+full_join(bs_trans_ub_aspects_filtered, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
+```
+
+# Data Exploration
+
+Plotting
