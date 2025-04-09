@@ -526,7 +526,7 @@ pers_full_treetemp_data_2025 <- bs_pers_b_aspects_filtered %>%
 
 ```{r}
 trans_full_treetemp_data_2025 <- bs_trans_b_aspects_filtered %>%
-  full_join(pers_b_aspects, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
+  full_join(trans_b_aspects, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
 
 #adding trans UB - cant do this yet because I don't have data!
 full_join(bs_trans_ub_aspects_filtered, by = c("datetime", "day", "zone", "burn_status", "tree_name", "aspect", "phase", "sensor_height_m", "temp_C", "solarNoon", "sunrise", "sunset", "dawn", "dusk"))
@@ -534,4 +534,181 @@ full_join(bs_trans_ub_aspects_filtered, by = c("datetime", "day", "zone", "burn_
 
 # Data Exploration
 
+## Three Day Comparison
+
+TSZ
+
+```{r}
+TSZ_threeday_comp <- trans_full_treetemp_data_2025 %>%
+  filter(datetime >= "2025-03-08 00:00:00" & datetime <= "2025-03-11 00:00:00") %>%
+  mutate(sensor_height_m = as.character(sensor_height_m)) %>%
+  mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5")))
+```
+
+```{r}
+#three day lineplot PSZ
+TSZ_threeday_comp_lineplot <- ggplot(data = TSZ_threeday_comp) + 
+        # Bold line at y = 0
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey23", size = 0.3) +
+  geom_line(aes(x = datetime, y = temp_C, linetype = sensor_height_m, color = burn_status, alpha = sensor_height_m), linewidth = 0.7) +
+  facet_wrap(~aspect) +
+  scale_linetype_manual(
+    name = "Sensor Height (m)",  # New legend title (showing as 'Tree' instead of 'Tree Name')
+    values = c("2" = "solid", "1" = "dashed", "0.5" = "dotted"),
+    labels = c("2", "1", "0.5")  # Ensuring the legend shows the correct labels
+  ) + 
+  scale_color_manual(
+    name = "Burn Status",
+    values = c("GB" = "#1B7837", "DB" = "#D95F02", "live" = alpha("#2166AC", 0.8))) +
+  scale_alpha_manual(
+  values = c("2" = 0.7, "1" = 1, "0.5" = 1),  # Make 2m more transparent
+  guide = "none") +
+  theme_bw() +
+  labs(title = "b) TSZ", x = NULL, y = "Temperature (°C)") +
+  theme(
+    strip.text = element_text(size = 11),  # Facet title size
+    axis.title = element_text(size = 11),  # Axis title size
+    axis.text = element_text(size = 11),  # Axis tick labels
+    legend.title = element_text(size = 11),  # Legend title size
+    legend.text = element_text(size = 10)  # Legend labels size
+  )
+ 
+TSZ_threeday_comp_lineplot
+```
+
+PSZ
+
+\*\*not working well right now because I don't have a consistent dataset.
+
+```{r}
+PSZ_threeday_comp <- pers_full_treetemp_data_2025 %>%
+  filter(datetime >= "2025-01-18 00:00:00" & datetime <= "2025-01-21 00:00:00") %>%
+  mutate(sensor_height_m = as.character(sensor_height_m)) %>%
+  mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5")))
+```
+
+```{r}
+#three day lineplot PSZ
+PSZ_threeday_comp_lineplot <- ggplot(data = PSZ_threeday_comp) + 
+        # Bold line at y = 0
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey23", size = 0.3) +
+  geom_line(aes(x = datetime, y = temp_C, linetype = sensor_height_m, color = burn_status, alpha = sensor_height_m), linewidth = 0.7) +
+  facet_wrap(~aspect) +
+  scale_linetype_manual(
+    name = "Sensor Height (m)",  # New legend title (showing as 'Tree' instead of 'Tree Name')
+    values = c("2" = "solid", "1" = "dashed", "0.5" = "dotted"),
+    labels = c("2", "1", "0.5")  # Ensuring the legend shows the correct labels
+  ) + 
+  scale_color_manual(
+    name = "Burn Status",
+    values = c("GB" = "#1B7837", "DB" = "#D95F02", "live" = alpha("#2166AC", 0.8))) +
+  scale_alpha_manual(
+  values = c("2" = 0.7, "1" = 1, "0.5" = 1),  # Make 2m more transparent
+  guide = "none") +
+  theme_bw() +
+  labs(title = "a) PSZ", x = NULL, y = "Temperature (°C)") +
+  theme(
+    strip.text = element_text(size = 11),  # Facet title size
+    axis.title = element_text(size = 11),  # Axis title size
+    axis.text = element_text(size = 11),  # Axis tick labels
+    legend.title = element_text(size = 11),  # Legend title size
+    legend.text = element_text(size = 10)  # Legend labels size
+  )
+ 
+PSZ_threeday_comp_lineplot
+```
+
+Full Dataset
+
+Mean day and night temps
+
+```{r}
+#daytime dataframe
+TSZ_full_mean_daily_dt <- trans_full_treetemp_data_2025 %>%
+  filter(phase == "day", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-03-13 00:00:00") %>%
+  mutate(sensor_height_m = as.character(sensor_height_m)) %>%
+  mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5"))) %>%
+  group_by(day, phase, zone, burn_status, aspect, sensor_height_m) %>%
+  summarize(mean_dt_temp = mean(temp_C, na.rm = TRUE))
+```
+
+```{r}
+#nighttime dataframe
+TSZ_full_mean_daily_nt <- trans_full_treetemp_data_2025 %>%
+  filter(phase == "night", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-03-13 00:00:00") %>%
+  mutate(sensor_height_m = as.character(sensor_height_m)) %>%
+  mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5"))) %>%
+  group_by(day, phase, zone, burn_status, aspect, sensor_height_m) %>%
+  summarize(mean_dt_temp = mean(temp_C, na.rm = TRUE))
+```
+
 Plotting
+
+```{r}
+#daytime plot
+TSZ_full_mean_dt_lineplot <- ggplot(data = TSZ_full_mean_daily_dt) + 
+        # Bold line at y = 0
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey23", size = 0.3) +
+  geom_line(aes(x = day, y = mean_dt_temp, linetype = sensor_height_m, color = burn_status, alpha = sensor_height_m), linewidth = 0.7) +
+  facet_wrap(~aspect) +
+  scale_linetype_manual(
+    name = "Sensor Height (m)",  # New legend title (showing as 'Tree' instead of 'Tree Name')
+    values = c("2" = "solid", "1" = "dashed", "0.5" = "dotted"),
+    labels = c("2", "1", "0.5")  # Ensuring the legend shows the correct labels
+  ) + 
+  scale_color_manual(
+    name = "Burn Status",
+    values = c("GB" = "#1B7837", "DB" = "#D95F02", "live" = alpha("#2166AC", 0.8))) +
+  scale_alpha_manual(
+  values = c("2" = 0.7, "1" = 1, "0.5" = 1),  # Make 2m more transparent
+  guide = "none") +
+  theme_bw() +
+  labs(title = "a) TSZ Daily Mean Day Temps", x = NULL, y = "Temperature (°C)") +
+  theme(
+    strip.text = element_text(size = 11),  # Facet title size
+    axis.title = element_text(size = 11),  # Axis title size
+    axis.text = element_text(size = 11),  # Axis tick labels
+    legend.title = element_text(size = 11),  # Legend title size
+    legend.text = element_text(size = 10)  # Legend labels size
+  )
+ 
+TSZ_full_mean_dt_lineplot
+```
+
+```{r}
+#daytime plot
+TSZ_full_mean_nt_lineplot <- ggplot(data = TSZ_full_mean_daily_nt) + 
+        # Bold line at y = 0
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey23", size = 0.3) +
+  geom_line(aes(x = day, y = mean_dt_temp, linetype = sensor_height_m, color = burn_status, alpha = sensor_height_m), linewidth = 0.7) +
+  facet_wrap(~aspect) +
+  scale_linetype_manual(
+    name = "Sensor Height (m)",  # New legend title (showing as 'Tree' instead of 'Tree Name')
+    values = c("2" = "solid", "1" = "dashed", "0.5" = "dotted"),
+    labels = c("2", "1", "0.5")  # Ensuring the legend shows the correct labels
+  ) + 
+  scale_color_manual(
+    name = "Burn Status",
+    values = c("GB" = "#1B7837", "DB" = "#D95F02", "live" = alpha("#2166AC", 0.8))) +
+  scale_alpha_manual(
+  values = c("2" = 0.7, "1" = 1, "0.5" = 1),  # Make 2m more transparent
+  guide = "none") +
+  theme_bw() +
+  labs(title = "b) TSZ Daily Mean Night Temps", x = NULL, y = "Temperature (°C)") +
+  theme(
+    strip.text = element_text(size = 11),  # Facet title size
+    axis.title = element_text(size = 11),  # Axis title size
+    axis.text = element_text(size = 11),  # Axis tick labels
+    legend.title = element_text(size = 11),  # Legend title size
+    legend.text = element_text(size = 10)  # Legend labels size
+  )
+ 
+TSZ_full_mean_nt_lineplot
+```
+
+```{r}
+TSZ_comb_mean_dtnt_temps <- ggarrange(TSZ_full_mean_dt_lineplot, TSZ_full_mean_nt_lineplot, 
+                                      nrow = 2, ncol = 1, common.legend = TRUE, legend = "right")
+
+TSZ_comb_mean_dtnt_temps
+```
