@@ -540,7 +540,7 @@ TSZ
 
 ```{r}
 TSZ_threeday_comp <- trans_full_treetemp_data_2025 %>%
-  filter(datetime >= "2025-03-08 00:00:00" & datetime <= "2025-03-11 00:00:00") %>%
+  filter(datetime >= "2025-03-18 00:00:00" & datetime <= "2025-03-21 00:00:00") %>%
   mutate(sensor_height_m = as.character(sensor_height_m)) %>%
   mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5")))
 ```
@@ -582,7 +582,7 @@ PSZ
 
 ```{r}
 PSZ_threeday_comp <- pers_full_treetemp_data_2025 %>%
-  filter(datetime >= "2025-01-18 00:00:00" & datetime <= "2025-01-21 00:00:00") %>%
+  filter(datetime >= "2025-04-11 00:00:00" & datetime <= "2025-04-14 00:00:00") %>%
   mutate(sensor_height_m = as.character(sensor_height_m)) %>%
   mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5")))
 ```
@@ -625,7 +625,7 @@ Mean day and night temps
 ```{r}
 #daytime dataframe
 TSZ_full_mean_daily_dt <- trans_full_treetemp_data_2025 %>%
-  filter(phase == "day", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-03-13 00:00:00") %>%
+  filter(phase == "day", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-04-15 00:00:00") %>%
   mutate(sensor_height_m = as.character(sensor_height_m)) %>%
   mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5"))) %>%
   group_by(day, phase, zone, burn_status, aspect, sensor_height_m) %>%
@@ -635,7 +635,7 @@ TSZ_full_mean_daily_dt <- trans_full_treetemp_data_2025 %>%
 ```{r}
 #nighttime dataframe
 TSZ_full_mean_daily_nt <- trans_full_treetemp_data_2025 %>%
-  filter(phase == "night", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-03-13 00:00:00") %>%
+  filter(phase == "night", datetime >= "2025-01-03 00:00:00" & datetime <= "2025-04-15 00:00:00") %>%
   mutate(sensor_height_m = as.character(sensor_height_m)) %>%
   mutate(sensor_height_m = factor(sensor_height_m, levels = c("2", "1", "0.5"))) %>%
   group_by(day, phase, zone, burn_status, aspect, sensor_height_m) %>%
